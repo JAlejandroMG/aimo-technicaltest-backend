@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 
 import jwt
 from bottle import HTTPResponse
@@ -21,6 +20,4 @@ def jwt_decode(encoded):
         jwt_decoded = jwt.decode(encoded, SECRET_KEY, algorithms="HS256", headers=None, json_encoder=None)
         return jwt_decoded
     except jwt.DecodeError:
-        raise HTTPResponse(body="No cuenta con las credenciales requeridas.", status=401)
-    except jwt.ExpiredSignatureError:
-        raise HTTPResponse(body="Su token ha expirado.", status=401)
+        return HTTPResponse(body="No cuenta con las credenciales requeridas.", status=401)

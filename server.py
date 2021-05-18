@@ -6,7 +6,8 @@ from marshmallow import ValidationError
 from db_app.crud import *
 from db_app.database import db, User, Note
 from db_app.serializers import UserSchema, NoteSchema
-from utils.jwt_auth import jwt_encode, jwt_decode
+from utils.jwt_auth import jwt_encode
+from utils.user_id import get_user_id
 
 db.connect()
 db.create_tables([User, Note])
@@ -46,36 +47,22 @@ def login():
     user_id = find_user(username, hashed_password)
     db.close()
     if not user_id:
-        raise HTTPResponse(body="No cuenta con las credenciales requeridas.", status=400)
+        return HTTPResponse(body="No cuenta con las credenciales requeridas.", status=400)
     jwt_token = jwt_encode(str(user_id), username)
     jwt_token = str(jwt_token).lstrip("b'")
     jwt_token = str(jwt_token).rstrip("'")
     return HTTPResponse(body={"token": jwt_token}, status=200)
 
 
-@post('/decode')
-def decode():
-    token = request.forms.get('token')
-    jwt_authentication = jwt_decode(token)
-    print(jwt_authentication)
-
-
 @post('/notes')
 def notes():
     bearer_token = request.get_header('Authorization')
-    bearer_token = bearer_token.lstrip("Bearer")
-    bearer_token = bearer_token.strip()
-    jwt_authentication = jwt_decode(bearer_token)
-    jwt_authentication = UserSchema().load(jwt_authentication, partial=("password",))
-    user = jwt_authentication.id
+    user_id = get_user_id(bearer_token)
     name = request.forms.get('name')
-    """user_id = request.forms.get('user_id')
-    note_data = {"name": name, "user": user}"""
-    pass
     try:
         note_data = NoteSchema().load({"name": name}, partial=("id", "user",))
         db.connect()
-        new_note = create_note(note_data.name, user)
+        new_note = create_note(note_data.name, user_id)
         db.close()
         return new_note
     except ValidationError as error:
@@ -85,29 +72,12 @@ def notes():
 @get('/notes')
 def notes():
     bearer_token = request.get_header('Authorization')
-    bearer_token = bearer_token.lstrip("Bearer")
-    bearer_token = bearer_token.strip()
-    #print(bearer_token)
-    #token = request.forms.get('token')
-    #jwt_authentication = jwt_decode(token)
-    jwt_authentication = jwt_decode(bearer_token)
-    jwt_authentication = UserSchema().load(jwt_authentication, partial=("password",))
-    user = jwt_authentication.id
-    #print(jwt_authentication)
+    user_id = get_user_id(bearer_token)
     db.connect()
-    all_notes = get_user_notes(user)
+    all_notes = get_user_notes(user_id)
     db.close()
     response.content_type = 'application/json'
     return dumps(all_notes)
-
-
-@get('/notes/<user_id>')
-def notes(user_id):
-    db.connect()
-    all_user_notes = get_user_notes(user_id)
-    db.close()
-    response.content_type = 'application/json'
-    return dumps(all_user_notes)
 
 
 run(host='localhost', port=8000)

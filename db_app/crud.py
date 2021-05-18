@@ -43,18 +43,6 @@ def create_note(name, user_id):
     return new_note
 
 
-def get_all_notes():
-    all_notes = Note.select()
-    all_notes_json = []
-    for note in all_notes:
-        all_notes_json.append({
-            "id": str(note.id),
-            "name": note.name,
-            "user": str(note.user.id)
-        })
-    return all_notes_json
-
-
 def get_user_notes(user_id):
     all_user_notes = Note.filter(Note.user == user_id)
     all_user_notes_json = []
