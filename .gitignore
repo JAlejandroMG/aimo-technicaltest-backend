@@ -1,3 +1,4 @@
 venv/
 .idea/
-.env/
+.env
+tt_backend.db

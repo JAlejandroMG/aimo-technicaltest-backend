@@ -1,14 +1,12 @@
 from db_app.database import User, Note
-from utils.serializers import UserSchema, NoteSchema
+from db_app.serializers import UserSchema, NoteSchema
+from utils.hash_password import hash_password
 
 
 def create_user(username, password):
-    new_user = User(username=username, password=password)
+    hashed_password = hash_password(password)
+    new_user = User(username=username, password=hashed_password)
     new_user.save(force_insert=True)
-    """new_user = {
-        "id": f'{new_user.id}',
-        "username": new_user.username
-    }"""
     schema = UserSchema(only=("id", "username"))
     new_user = schema.dump(new_user)
     return new_user
@@ -25,8 +23,15 @@ def get_all_users():
     return all_users_json
 
 
-def create_note(name, user):
-    new_note = Note(name=name, user=user)
+def find_user(username, password):
+    try:
+        user_id = User.select().where(User.username == username, User.password == password).get().id
+        return user_id
+    except User.DoesNotExist:
+        return False
+
+def create_note(name, user_id):
+    new_note = Note(name=name, user=user_id)
     new_note.save(force_insert=True)
     new_note = {
         "id": new_note.id,
@@ -36,23 +41,6 @@ def create_note(name, user):
     schema = NoteSchema()
     new_note = schema.dump(new_note)
     return new_note
-
-
-def get_all_notes():
-    """all_notes = list(Note.select())
-    print(all_notes)"""
-    all_notes = Note.select()
-    all_notes_json = []
-    for note in all_notes:
-        all_notes_json.append({
-            "id": str(note.id),
-            "name": note.name,
-            "user": str(note.user.id)
-        })
-    """schema = NoteSchema(many=True)
-    all_notes = schema.dump(all_notes)
-    return all_notes"""
-    return all_notes_json
 
 
 def get_user_notes(user_id):
