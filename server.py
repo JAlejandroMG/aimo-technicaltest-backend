@@ -1,6 +1,9 @@
-from bottle import run, request, post, get, response, HTTPResponse
+import json
+
+from bottle import app, run, request, post, get, response, HTTPResponse, hook
 from json import dumps
 
+from bottle_cors_plugin import cors_plugin
 from marshmallow import ValidationError
 
 from db_app.crud import *
@@ -14,7 +17,7 @@ db.create_tables([User, Note])
 db.close()
 
 
-@post('/users')
+@post('/v1/users')
 def users():
     username = request.forms.get('username')
     password = request.forms.get('password')
@@ -29,7 +32,7 @@ def users():
         return error.messages
 
 
-@get('/users')
+@get('/v1/users')
 def users():
     db.connect()
     all_users = get_all_users()
@@ -38,10 +41,14 @@ def users():
     return dumps(all_users)
 
 
-@post('/login')
+@post('/v1/login')
 def login():
-    username = request.forms.get('username')
-    password = request.forms.get('password')
+    body = request.body.read()
+    body = str(body).lstrip("b'")
+    body = str(body).rstrip("'")
+    body = json.loads(body)
+    username = body['username']
+    password = body['password']
     hashed_password = hash_password(password)
     db.connect()
     user_id = find_user(username, hashed_password)
@@ -51,10 +58,13 @@ def login():
     jwt_token = jwt_encode(str(user_id), username)
     jwt_token = str(jwt_token).lstrip("b'")
     jwt_token = str(jwt_token).rstrip("'")
-    return HTTPResponse(body={"token": jwt_token}, status=200)
+    body = json.dumps({"token": jwt_token})
+    response.content_type = 'application/json'
+    print(body)
+    return HTTPResponse(body=body, status=200)
 
 
-@post('/notes')
+@post('/v1/notes')
 def notes():
     bearer_token = request.get_header('Authorization')
     user_id = get_user_id(bearer_token)
@@ -69,7 +79,7 @@ def notes():
         return error.messages
 
 
-@get('/notes')
+@get('/v1/notes')
 def notes():
     bearer_token = request.get_header('Authorization')
     user_id = get_user_id(bearer_token)
@@ -78,6 +88,22 @@ def notes():
     db.close()
     response.content_type = 'application/json'
     return dumps(all_notes)
+
+
+app = app()
+app.install(cors_plugin('*'))
+
+
+allow_origin = '*'
+allow_methods = 'PUT,GET'
+allow_headers = 'Authorization, Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
+
+
+@hook('after_request')
+def enable_cors():
+    response.headers['Acces-Control-Allow-Origin'] = allow_origin
+    response.headers['Acces-Control-Allow-Methods'] = allow_methods
+    response.headers['Acces-Control-Allow-Headers'] = allow_headers
 
 
 run(host='localhost', port=8000)
